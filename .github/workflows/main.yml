@@ -1,25 +1,32 @@
 name: Monitor Dropbox
-
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Ejecutar cada 5 minutos
-  workflow_dispatch:  # Permite ejecución manual
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   convert_pdf:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy==1.24.3
+        pip install -r requirements.txt
       
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.9'
-          
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-        
-      - name: Run converter
-        env:
-          DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
-        run: python pdf_converter.py
+    - name: Run converter
+      env:
+        DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
+      run: python pdf_converter.py
+      
+    - name: Debug information
+      run: |
+        python --version
+        pip list
