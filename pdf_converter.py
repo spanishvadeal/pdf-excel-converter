@@ -1,11 +1,11 @@
 import os
-import time
 import tempfile
 import dropbox
 from dropbox.exceptions import ApiError, AuthError
 import pdfplumber
 import pandas as pd
 import logging
+import sys
 from datetime import datetime
 
 # Configuración de logging
@@ -14,10 +14,15 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Leer token desde variables de entorno (configurado en Heroku)
+# Leer token desde variables de entorno
 DROPBOX_TOKEN = os.environ.get('DROPBOX_TOKEN')
 
-# Carpeta en Dropbox que quieres monitorear (ruta relativa a la raíz de Dropbox)
+# Validar que el token exista
+if not DROPBOX_TOKEN:
+    logging.error("DROPBOX_TOKEN no está configurado. Verificar variables de entorno.")
+    sys.exit(1)
+
+# Carpeta en Dropbox que quieres monitorear
 DROPBOX_FOLDER = '/PDFs_a_Convertir'
 
 # Lista para mantener un registro de archivos ya procesados
@@ -41,7 +46,6 @@ def make_unique_columns(df):
 def procesar_pdf(pdf_path, excel_path):
     """
     Procesa un archivo PDF y lo convierte a Excel.
-    Este es tu código original con pequeñas modificaciones.
     """
     try:
         logging.info(f"Procesando el archivo: {pdf_path}")
@@ -98,12 +102,18 @@ def get_dropbox_client():
     Inicializa y devuelve un cliente de Dropbox.
     """
     try:
+        logging.info(f"Token recibido (primeros 10 caracteres): {DROPBOX_TOKEN[:10]}")
+        
         dbx = dropbox.Dropbox(DROPBOX_TOKEN)
         # Verificar que el token es válido
-        dbx.users_get_current_account()
+        account = dbx.users_get_current_account()
+        logging.info(f"Conectado como: {account.name.display_name}")
         return dbx
-    except AuthError:
-        logging.error("Error de autenticación. Verifica tu token de Dropbox.")
+    except AuthError as e:
+        logging.error(f"Error de autenticación detallado: {str(e)}")
+        return None
+    except Exception as e:
+        logging.error(f"Error inesperado al conectar con Dropbox: {str(e)}")
         return None
 
 def check_for_new_pdfs(dbx):
@@ -169,37 +179,34 @@ def process_pdf_file(dbx, file_metadata):
         logging.error(f"Error al procesar archivo {file_metadata.name}: {str(e)}")
         return False
 
-def main_loop():
+def main():
     """
-    Función principal que ejecuta el bucle de monitoreo.
+    Función principal para procesar archivos PDF en Dropbox.
     """
     logging.info("Iniciando servicio de conversión PDF a Excel...")
     
-    while True:
-        try:
-            dbx = get_dropbox_client()
-            if not dbx:
-                logging.error("No se pudo conectar con Dropbox. Reintentando en 60 segundos...")
-                time.sleep(60)
-                continue
-            
-            logging.info(f"Revisando nuevos PDFs en {DROPBOX_FOLDER}...")
-            new_files = check_for_new_pdfs(dbx)
-            
-            if new_files:
-                logging.info(f"Se encontraron {len(new_files)} nuevos PDFs para procesar.")
-                for file_metadata in new_files:
-                    process_pdf_file(dbx, file_metadata)
-            else:
-                logging.info("No se encontraron nuevos PDFs.")
-                
-            # Esperar antes de la siguiente verificación (30 segundos)
-            time.sleep(30)
-            
-        except Exception as e:
-            logging.error(f"Error en el bucle principal: {str(e)}")
-            # Reconectar en caso de error
-            time.sleep(60)
+    try:
+        # Intentar conectar con Dropbox
+        dbx = get_dropbox_client()
+        if not dbx:
+            logging.error("No se pudo conectar con Dropbox.")
+            sys.exit(1)
+        
+        # Buscar nuevos PDFs
+        logging.info(f"Revisando nuevos PDFs en {DROPBOX_FOLDER}...")
+        new_files = check_for_new_pdfs(dbx)
+        
+        # Procesar archivos encontrados
+        if new_files:
+            logging.info(f"Se encontraron {len(new_files)} nuevos PDFs para procesar.")
+            for file_metadata in new_files:
+                process_pdf_file(dbx, file_metadata)
+        else:
+            logging.info("No se encontraron nuevos PDFs.")
+    
+    except Exception as e:
+        logging.error(f"Error en la ejecución: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main_loop()
+    main()
