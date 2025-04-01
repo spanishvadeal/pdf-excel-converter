@@ -1,0 +1,9 @@
+services:
+  - type: worker
+    name: pdf-excel-converter
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash ./start.sh
+    envVars:
+      - key: DROPBOX_TOKEN
+        sync: false
