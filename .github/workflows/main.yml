@@ -1,7 +1,7 @@
 name: Monitor Dropbox
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/5 * * * *'  # Corregido
   workflow_dispatch:
 
 jobs:
