@@ -1,3 +1,4 @@
+numpy==1.24.3
 dropbox==11.36.2
 pdfplumber==0.10.3
 pandas==2.0.3
