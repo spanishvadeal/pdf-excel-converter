@@ -1,7 +1,8 @@
 name: Monitor Dropbox
+
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Corregido
+    - cron: '*/15 * * * *'  # Ejecutar cada 15 minutos
   workflow_dispatch:
 
 jobs:
@@ -18,17 +19,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install numpy==1.24.3
         pip install -r requirements.txt
     
-    - name: Print environment for debugging
-      env:
-        DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
-      run: |
-        echo "Dropbox token length: ${#DROPBOX_TOKEN}"
-        python -c "import os; print('Token exists' if os.environ.get('DROPBOX_TOKEN') else 'No token found')"
-      
     - name: Run converter
       env:
-        DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
+        DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+        DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+        DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
       run: python pdf_converter.py
