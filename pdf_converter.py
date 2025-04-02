@@ -20,7 +20,7 @@ DROPBOX_APP_SECRET = os.environ.get('DROPBOX_APP_SECRET')
 DROPBOX_REFRESH_TOKEN = os.environ.get('DROPBOX_REFRESH_TOKEN')
 
 # Carpeta en Dropbox que quieres monitorear (ruta relativa a la raíz de Dropbox)
-DROPBOX_FOLDER = '/Apps/PDFExcelConverter'  # Ajusta esta ruta según tu configuración
+DROPBOX_FOLDER = '/PDFs_a_Convertir'  # Ajusta esta ruta según tu configuración
 
 # Lista para mantener un registro de archivos ya procesados
 processed_files = set()
