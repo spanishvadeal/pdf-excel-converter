@@ -1,9 +1,6 @@
-services:
-  - type: worker
-    name: pdf-excel-converter
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: bash ./start.sh
-    envVars:
-      - key: DROPBOX_TOKEN
-        sync: false
+- name: Run converter
+  env:
+    DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+    DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+    DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+  run: python pdf_converter.py
