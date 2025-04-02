@@ -1,11 +1,11 @@
 import os
+import time
 import tempfile
 import dropbox
 from dropbox.exceptions import ApiError, AuthError
 import pdfplumber
 import pandas as pd
 import logging
-import sys
 from datetime import datetime
 
 # Configuración de logging
@@ -14,16 +14,13 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Leer token desde variables de entorno
-DROPBOX_TOKEN = os.environ.get('DROPBOX_TOKEN')
+# Credenciales de Dropbox (App Key y App Secret en lugar de token)
+DROPBOX_APP_KEY = os.environ.get('DROPBOX_APP_KEY')
+DROPBOX_APP_SECRET = os.environ.get('DROPBOX_APP_SECRET')
+DROPBOX_REFRESH_TOKEN = os.environ.get('DROPBOX_REFRESH_TOKEN')
 
-# Validar que el token exista
-if not DROPBOX_TOKEN:
-    logging.error("DROPBOX_TOKEN no está configurado. Verificar variables de entorno.")
-    sys.exit(1)
-
-# Carpeta en Dropbox que quieres monitorear
-DROPBOX_FOLDER = '/PDFs_a_Convertir'
+# Carpeta en Dropbox que quieres monitorear (ruta relativa a la raíz de Dropbox)
+DROPBOX_FOLDER = '/Apps/PDFExcelConverter'  # Ajusta esta ruta según tu configuración
 
 # Lista para mantener un registro de archivos ya procesados
 processed_files = set()
@@ -99,21 +96,26 @@ def procesar_pdf(pdf_path, excel_path):
 
 def get_dropbox_client():
     """
-    Inicializa y devuelve un cliente de Dropbox.
+    Inicializa y devuelve un cliente de Dropbox usando App Key y App Secret.
+    Esta función maneja la autenticación con credenciales que no expiran.
     """
     try:
-        logging.info(f"Token recibido (primeros 10 caracteres): {DROPBOX_TOKEN[:10]}")
-        
-        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
-        # Verificar que el token es válido
-        account = dbx.users_get_current_account()
-        logging.info(f"Conectado como: {account.name.display_name}")
-        return dbx
-    except AuthError as e:
-        logging.error(f"Error de autenticación detallado: {str(e)}")
-        return None
+        # Si tenemos un refresh token, usarlo para obtener un nuevo access token
+        if DROPBOX_REFRESH_TOKEN:
+            logging.info("Usando refresh token para obtener un nuevo access token...")
+            dbx = dropbox.Dropbox(
+                app_key=DROPBOX_APP_KEY,
+                app_secret=DROPBOX_APP_SECRET,
+                oauth2_refresh_token=DROPBOX_REFRESH_TOKEN
+            )
+            # Verificar que la autenticación funciona
+            dbx.users_get_current_account()
+            return dbx
+        else:
+            logging.error("No se encontró DROPBOX_REFRESH_TOKEN. Es necesario para la autenticación.")
+            return None
     except Exception as e:
-        logging.error(f"Error inesperado al conectar con Dropbox: {str(e)}")
+        logging.error(f"Error de autenticación con Dropbox: {str(e)}")
         return None
 
 def check_for_new_pdfs(dbx):
@@ -181,32 +183,33 @@ def process_pdf_file(dbx, file_metadata):
 
 def main():
     """
-    Función principal para procesar archivos PDF en Dropbox.
+    Función principal que ejecuta el proceso de verificación y conversión.
     """
     logging.info("Iniciando servicio de conversión PDF a Excel...")
     
+    # Verificar que tenemos todas las credenciales necesarias
+    if not all([DROPBOX_APP_KEY, DROPBOX_APP_SECRET, DROPBOX_REFRESH_TOKEN]):
+        logging.error("Faltan credenciales de Dropbox. Se requieren APP_KEY, APP_SECRET y REFRESH_TOKEN.")
+        return
+    
+    dbx = get_dropbox_client()
+    if not dbx:
+        logging.error("No se pudo conectar con Dropbox. Verifique sus credenciales.")
+        return
+    
     try:
-        # Intentar conectar con Dropbox
-        dbx = get_dropbox_client()
-        if not dbx:
-            logging.error("No se pudo conectar con Dropbox.")
-            sys.exit(1)
-        
-        # Buscar nuevos PDFs
         logging.info(f"Revisando nuevos PDFs en {DROPBOX_FOLDER}...")
         new_files = check_for_new_pdfs(dbx)
         
-        # Procesar archivos encontrados
         if new_files:
             logging.info(f"Se encontraron {len(new_files)} nuevos PDFs para procesar.")
             for file_metadata in new_files:
                 process_pdf_file(dbx, file_metadata)
         else:
             logging.info("No se encontraron nuevos PDFs.")
-    
+            
     except Exception as e:
-        logging.error(f"Error en la ejecución: {str(e)}")
-        sys.exit(1)
+        logging.error(f"Error en el proceso principal: {str(e)}")
 
 if __name__ == "__main__":
     main()
